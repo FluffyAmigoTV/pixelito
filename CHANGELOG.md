@@ -2,6 +2,14 @@
 
 Every update to Pixelito, newest first. Installed copies show these notes after updating.
 
+## 1.2.0 · Brush sizes
+
+*Released 2026-11-06*
+
+- Brush size slider from 1 to 100 pixels, plus a box to type an exact size.
+- One-tap size buttons from 1×1 to 10×10, easy with a finger or Apple Pencil.
+- The eraser has its own size, and Pixelito remembers both.
+
 ## 1.1.0 · Move freely, choose your folders, and stay up to date
 
 *Released 2026-11-06*

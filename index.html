@@ -164,6 +164,9 @@
   .layer .count { color:var(--faint); font-size:11px; padding-right:4px; }
   .prop { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; color:var(--muted); }
   .prop input[type=range] { flex:1; min-width:0; }
+  .size-prop #brushSize { width:56px; flex:none; }
+  .size-chips { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; margin:-2px 0 10px; }
+  .size-chips button { padding:5px 0; min-width:0; font-size:12px; font-variant-numeric:tabular-nums; }
   .prop output { width:38px; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); }
   .check { display:flex; gap:8px; align-items:center; margin-bottom:6px; color:var(--muted); }
   .hint { color:var(--faint); font-size:11.5px; margin:2px 0 8px; line-height:1.5; }
@@ -287,6 +290,16 @@
      read this block to make version.json (the update check), CHANGELOG.md and the Windows program's version. -->
 <script type="application/json" id="changelog">
 [
+  {
+    "version": "1.2.0",
+    "date": "2026-11-06",
+    "title": "Brush sizes",
+    "changes": [
+      "Brush size slider from 1 to 100 pixels, plus a box to type an exact size.",
+      "One-tap size buttons from 1×1 to 10×10, easy with a finger or Apple Pencil.",
+      "The eraser has its own size, and Pixelito remembers both."
+    ]
+  },
   {
     "version": "1.1.0",
     "date": "2026-11-06",
@@ -434,7 +447,8 @@
         <hr>
       </div>
       <div data-for="pencil eraser line curve rect ellipse spray shade">
-        <label class="prop">Size <input type="number" id="brushSize" min="1" max="32" value="1"></label>
+        <div class="prop size-prop"><span id="sizeLabel">Brush size</span><input type="range" id="brushSlider" min="1" max="100" value="1" aria-label="Brush size"><input type="number" id="brushSize" min="1" max="100" value="1" aria-label="Brush size in pixels"></div>
+        <div class="size-chips" id="sizeChips" role="group" aria-label="Quick brush sizes"></div>
         <label class="prop">Brush <select id="brushShape"><option value="square">Square</option><option value="round">Round</option></select></label>
         <div id="customBrushRow" class="prop" hidden><span id="customBrushInfo"></span><select id="brushColorMode" aria-label="Custom brush colors"><option value="own">Its own colors</option><option value="color">Drawing color</option></select><button id="normalBrush">Normal brush</button></div>
       </div>
@@ -2417,7 +2431,7 @@ function refreshHeader() {
   $("ungroup").disabled = !sel && !current.group;
   $("addGroup").disabled = sel;
   $("delFrame").disabled = state.frames.length < 2;
-  $("brushSize").value = state.brush;
+  refreshSizeUI();
   refreshViewPanel(); refreshTabs();
 }
 function refreshAll() {
@@ -2435,7 +2449,9 @@ function setStatus(extra) {
 function setTool(id) {
   if (curveEdit) commitCurve();
   if (floating && id !== "move") commitFloating();
-  state.tool = id; refreshTools(); draw();
+  state.tool = id;
+  state.brush = brushSizes[sizeSlot()];  // the eraser keeps its own size
+  refreshTools(); refreshSizeUI(); draw();
 }
 
 // New layers go above the current one, in the same folder.
@@ -3725,8 +3741,8 @@ const COMMANDS = [
   cmd("newTag", "Frame", "New tag from selected frames…", "", () => openTagDialog(-1), true),
   cmd("mirrorTag", "Frame", "Mirrored copy of a tag (8 directions)…", "", openMirrorTag),
   ...TOOLS.map(([id, label, key]) => cmd(`tool:${id}`, "Tools", label, key, () => setTool(id))),
-  cmd("brushSmaller", "Tools", "Smaller brush", "[", () => { state.brush = Math.max(1, state.brush - 1); refreshHeader(); draw(); }, true),
-  cmd("brushBigger", "Tools", "Bigger brush", "]", () => { state.brush = Math.min(32, state.brush + 1); refreshHeader(); draw(); }),
+  cmd("brushSmaller", "Tools", "Smaller brush", "[", () => setBrushSize(state.brush - 1), true),
+  cmd("brushBigger", "Tools", "Bigger brush", "]", () => setBrushSize(state.brush + 1)),
   cmd("zoomIn", "View", "Zoom in", "= + Shift+=", () => zoomAround(1)),
   cmd("zoomOut", "View", "Zoom out", "-", () => zoomAround(-1)),
   cmd("zoomFit", "View", "Fit on screen", "0", () => $("zoomFit").click()),
@@ -4547,7 +4563,33 @@ function reduceToPalette() {
   });
   changed();
 };
-$("brushSize").onchange = (e) => { state.brush = Math.max(1, Math.min(32, +e.target.value || 1)); refreshHeader(); };
+// Brush sizes: one for the drawing tools and one for the eraser, each 1 to 100 pixels, remembered.
+const BRUSH_MAX = 100, SIZES_KEY = "pixelito-brush-sizes";
+const clampSize = (n) => Math.max(1, Math.min(BRUSH_MAX, Math.round(+n) || 1));
+const brushSizes = { draw: 1, eraser: 1 };
+try { const s = JSON.parse(localStorage.getItem(SIZES_KEY) || "null"); if (s) for (const k of ["draw", "eraser"]) if (Number.isFinite(s[k])) brushSizes[k] = clampSize(s[k]); } catch { /* defaults */ }
+const sizeSlot = () => (state.tool === "eraser" ? "eraser" : "draw");
+state.brush = brushSizes[sizeSlot()];
+function setBrushSize(n) {
+  state.brush = clampSize(n);
+  brushSizes[sizeSlot()] = state.brush;
+  try { localStorage.setItem(SIZES_KEY, JSON.stringify(brushSizes)); } catch { /* fine */ }
+  refreshSizeUI(); draw();
+}
+function refreshSizeUI() {
+  $("brushSize").value = state.brush; $("brushSlider").value = state.brush;
+  $("sizeLabel").textContent = state.tool === "eraser" ? "Eraser size" : "Brush size";
+  for (const b of $("sizeChips").children) b.classList.toggle("on", +b.dataset.size === state.brush);
+}
+for (let n = 1; n <= 10; n++) {
+  const b = document.createElement("button");
+  b.dataset.size = n; b.textContent = `${n}×${n}`; b.title = `${n} by ${n} pixels`;
+  b.onclick = () => setBrushSize(n);
+  $("sizeChips").append(b);
+}
+$("brushSize").onchange = (e) => setBrushSize(e.target.value);
+$("brushSlider").oninput = (e) => setBrushSize(e.target.value);
+refreshSizeUI();
 $("addLayer").onclick = () => addLayer();
 $("addGroup").onclick = groupLayer;
 $("ungroup").onclick = ungroup;
