@@ -12,7 +12,9 @@
 **Install on iPad or iPhone:** open the link in Safari, tap Share, then *Add to Home Screen*.
 **Install on Android:** open it in Chrome, tap the menu, then *Install app*.
 
-A Windows program is also available from FluffyAmigo Studio.
+**Windows:** download *Pixelito Setup* from the [latest release](https://github.com/FluffyAmigoTV/pixelito/releases/latest). Installed copies tell you when an update is ready.
+
+**What's new:** see the [changelog](CHANGELOG.md).
 
 ---
 
