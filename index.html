@@ -4701,6 +4701,11 @@ $("frameLeft").onclick = () => { if (state.frame === 0) return; pushUndo(); cons
 $("frameRight").onclick = () => { if (state.frame >= state.frames.length - 1) return; pushUndo(); const [f] = state.frames.splice(state.frame, 1); state.frame += 1; state.frames.splice(state.frame, 0, f); refreshAll(); autosave(); };
 
 $("importBtn").onclick = () => $("importFile").click();
+// Phones and tablets: an images-only filter makes Android open just the photo gallery and camera,
+// hiding pictures saved as files. Without the filter the phone also offers its Files app.
+const allowAnyFilePicker = () => { for (const id of ["importFile", "sheetFile", "framesFile", "refFile", "gameImage", "paletteFile"]) $(id).removeAttribute("accept"); };
+if (navigator.maxTouchPoints > 0 || matchMedia("(any-pointer: coarse)").matches) allowAnyFilePicker();
+addEventListener("pointerdown", function onTouch(e) { if (e.pointerType !== "mouse") { allowAnyFilePicker(); removeEventListener("pointerdown", onTouch, true); } }, true);
 $("importFile").onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
