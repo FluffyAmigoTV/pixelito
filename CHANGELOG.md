@@ -2,6 +2,15 @@
 
 Every update to Pixelito, newest first. Installed copies show these notes after updating.
 
+## 1.2.1 · Tidier panels and full corners
+
+*Released 2026-11-06*
+
+- Tool options now sit at the top of the right panel, above the colors, and only show when the tool has settings.
+- Drawing and erasing keep every pixel you touch, so corners fill in completely. Corner trimming is now an option: Smooth lines (trims corner pixels).
+- Phones: tools are grouped into Brush, Shapes and Select tabs, the top bar takes two rows instead of three, and the timeline buttons are neatly arranged.
+- The Pick tool is now called Color Picker.
+
 ## 1.2.0 · Brush sizes
 
 *Released 2026-11-06*

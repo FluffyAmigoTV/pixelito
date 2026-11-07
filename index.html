@@ -110,6 +110,7 @@
   #tools button:hover { color:var(--text); }
   #tools button.on { background:var(--accent-soft); color:var(--accent); border-color:transparent; }
   #tools button svg { width:20px; height:20px; }
+  #toolTabs { display:none; }
   #tools .gap { height:1px; background:var(--line-soft); margin:4px 6px; flex:none; }
   #stage { position:relative; overflow:hidden; background:var(--stage); touch-action:none; }
   #view { position:absolute; left:0; top:0; width:100%; height:100%; cursor:crosshair; }
@@ -178,6 +179,7 @@
 
   footer { background:var(--panel); border-top:1px solid var(--line-soft); padding:8px 12px 10px; }
   footer > .row { gap:6px; }
+  footer .fgroup { gap:6px; }
   footer label.row { color:var(--muted); gap:6px; }
   #play { min-width:74px; font-weight:600; }
   #frameLabel { color:var(--muted); font-size:12px; margin-left:auto; font-variant-numeric:tabular-nums; }
@@ -269,19 +271,38 @@
     body { overflow-x:hidden; overflow-y:auto; grid-template-rows:auto auto auto auto; }
     header { flex-wrap:wrap; row-gap:4px; padding-inline:max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px)); }
     .brand { font-size:0; gap:0; margin-right:2px; }
-    #menubar { order:10; flex-basis:100%; overflow-x:auto; scrollbar-width:none; }
-    #menubar button { padding:4px 8px; flex:none; }
+    /* Two header rows: menus, Save and Export on top; undo, view toggles and zoom below. */
+    .brand { order:1; }
+    #menubar { order:2; flex:1 1 0; min-width:0; overflow-x:auto; scrollbar-width:none; -webkit-mask-image:linear-gradient(90deg, #000 85%, transparent); mask-image:linear-gradient(90deg, #000 85%, transparent); }
+    #menubar button { padding:4px 7px; flex:none; }
+    #saveProject { order:3; } #exportBtn { order:4; }
+    header > .spacer { order:5; flex-basis:100%; height:0; }
+    header > .group { order:6; }
+    header > .group.zoom { order:7; margin-left:auto; }
+    header { gap:4px; }
+    header .icon { width:36px; min-width:36px; }
+    header .group { padding:0; }
     .group { border-left:0; padding:0 2px; }
     #status { display:none; }
     body { display:flex; flex-direction:column; }
     main { display:contents; }
-    header { order:1; } #tabs { order:2; } #tools { order:3; } #stage { order:4; height:56vh; flex:none; } footer { order:5; } aside { order:6; }
-    #tools { flex-direction:row; flex-wrap:wrap; overflow:visible; border-right:0; border-bottom:1px solid var(--line-soft); padding:4px 6px; }
+    header { order:1; } #tabs { order:2; } #toolTabs { order:3; } #tools { order:3; } #stage { order:4; height:min(56vh, calc(100vw + 16px)); flex:none; } footer { order:5; } aside { order:6; }
+    #toolTabs { display:flex; margin:6px 10px 0; }
+    #toolTabs button.on { background:var(--raised); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.35); font-weight:600; }
+    #tools { flex-direction:row; flex-wrap:nowrap; justify-content:center; overflow:visible; border-right:0; border-bottom:1px solid var(--line-soft); padding:2px 6px 4px; }
+    #tools .off-tab, #tools .gap { display:none; }
     aside { overflow:visible; }
     footer { position:static; }
-    #tools .gap { width:1px; height:24px; margin:7px 2px; }
     aside { border-left:0; border-top:1px solid var(--line-soft); }
     .gameControls { grid-template-columns:1fr; }
+    /* Timeline controls: one group per row, frame buttons in a neat 3 x 2 grid. */
+    footer .sep { display:none; }
+    footer .fgroup { flex-basis:100%; }
+    footer .fplay #playTag { flex:1; min-width:0; }
+    footer .ftime { flex-wrap:nowrap; font-size:12px; gap:4px; }
+    footer .ftime input { width:56px; }
+    footer .fframes { display:grid; grid-template-columns:repeat(3, 1fr); }
+    #frameLabel { flex-basis:100%; text-align:center; }
   }
 </style>
 </head>
@@ -290,6 +311,17 @@
      read this block to make version.json (the update check), CHANGELOG.md and the Windows program's version. -->
 <script type="application/json" id="changelog">
 [
+  {
+    "version": "1.2.1",
+    "date": "2026-11-06",
+    "title": "Tidier panels and full corners",
+    "changes": [
+      "Tool options now sit at the top of the right panel, above the colors, and only show when the tool has settings.",
+      "Drawing and erasing keep every pixel you touch, so corners fill in completely. Corner trimming is now an option: Smooth lines (trims corner pixels).",
+      "Phones: tools are grouped into Brush, Shapes and Select tabs, the top bar takes two rows instead of three, and the timeline buttons are neatly arranged.",
+      "The Pick tool is now called Color Picker."
+    ]
+  },
   {
     "version": "1.2.0",
     "date": "2026-11-06",
@@ -371,11 +403,52 @@
   <input type="file" id="framesFile" accept="image/png,image/gif,image/webp" multiple hidden>
 </header>
 <div id="tabs" role="tablist" aria-label="Open sprites"></div>
+<div id="toolTabs" class="segmented" role="tablist" aria-label="Tool groups"></div>
 
 <main>
   <nav id="tools" aria-label="Drawing tools"></nav>
   <div id="stage"><canvas id="view"></canvas></div>
   <aside>
+    <section id="toolOptions">
+      <h2>Tool options</h2>
+      <div id="toolName" class="toolName"></div>
+      <div id="transformPanel" hidden>
+        <div class="sub">Transform <span id="transformInfo"></span></div>
+        <div class="row">
+          <button id="tFlipH" title="Flip left to right">Flip H</button><button id="tFlipV" title="Flip top to bottom">Flip V</button>
+          <button id="tRotL" title="Rotate 90° counterclockwise">↺ 90</button><button id="tRotR" title="Rotate 90° clockwise">↻ 90</button>
+        </div>
+        <label class="prop">Angle ° <input type="number" id="tAngle" min="-360" max="360" step="1"></label>
+        <label class="prop">Width % <input type="number" id="tScaleW" min="1" max="1600"></label>
+        <label class="prop">Height % <input type="number" id="tScaleH" min="1" max="1600"></label>
+        <label class="check"><input type="checkbox" id="smoothRotate" checked> Smooth rotation (RotSprite-style)</label>
+        <label class="check"><input type="checkbox" id="keepRatio"> Keep proportions when resizing</label>
+        <div class="row"><button id="tCancel" title="Esc">Cancel</button><button id="tApply" class="on" title="Enter">Place it</button></div>
+        <hr>
+      </div>
+      <div data-for="pencil eraser line curve rect ellipse spray shade">
+        <div class="prop size-prop"><span id="sizeLabel">Brush size</span><input type="range" id="brushSlider" min="1" max="100" value="1" aria-label="Brush size"><input type="number" id="brushSize" min="1" max="100" value="1" aria-label="Brush size in pixels"></div>
+        <div class="size-chips" id="sizeChips" role="group" aria-label="Quick brush sizes"></div>
+        <label class="prop">Brush <select id="brushShape"><option value="square">Square</option><option value="round">Round</option></select></label>
+        <div id="customBrushRow" class="prop" hidden><span id="customBrushInfo"></span><select id="brushColorMode" aria-label="Custom brush colors"><option value="own">Its own colors</option><option value="color">Drawing color</option></select><button id="normalBrush">Normal brush</button></div>
+      </div>
+      <label class="prop" data-for="pencil line curve rect ellipse fill spray">Pattern <select id="pattern"><option value="solid">Solid</option><option value="checker">Checker 50%</option><option value="dots">Dots 25%</option><option value="lines">Lines</option><option value="diagonal">Diagonal</option></select></label>
+      <label class="check" data-for="pencil eraser" title="While you drag, removes the inside pixel of each L-shaped corner so thin lines look smooth. Leave it off to keep every pixel you touch."><input type="checkbox" id="pixelPerfect"> Smooth lines (trims corner pixels)</label>
+      <label class="check" data-for="rect ellipse"><input type="checkbox" id="filledShapes"> Filled shapes</label>
+      <label class="prop" data-for="wand">Tolerance <input type="number" id="wandTolerance" min="0" max="255" value="0"></label>
+      <label class="check" data-for="wand"><input type="checkbox" id="wandContiguous" checked> Only touching pixels</label>
+      <label class="check" data-for="gradient"><input type="checkbox" id="gradientDither" checked> Dithered (drawing color to background color)</label>
+      <div class="segmented" data-for="select lasso wand" role="group" aria-label="New selections">
+        <button data-mode="replace">Replace</button><button data-mode="add">Add</button><button data-mode="subtract">Subtract</button>
+      </div>
+      <p class="hint" data-for="select lasso wand">With a keyboard, Shift adds and Alt subtracts. Edit > Transform (Ctrl+T) moves, scales or rotates it.</p>
+      <p class="hint" data-for="gradient">Drag from where the drawing color starts to where the background color ends.</p>
+      <p class="hint" data-for="curve">Drag the line, then move to bend it and click.</p>
+      <p class="hint" data-for="slice">Drag to make a slice. Click a slice to edit or delete it.</p>
+      <label class="check" data-for="slice"><input type="checkbox" id="showSlices" checked> Show slices with other tools too</label>
+      <label class="prop" data-for="pencil eraser line curve rect ellipse spray shade fill gradient">Symmetry <select id="symmetry"><option value="none">Off</option><option value="v">Left–right</option><option value="h">Top–bottom</option><option value="both">Both</option></select></label>
+      <div class="prop" id="symAxes" hidden>Axis <input type="number" id="symX" step="0.5" title="Left–right axis, pixels from the left"><input type="number" id="symY" step="0.5" title="Top–bottom axis, pixels from the top"><button id="symCenter">Center</button></div>
+    </section>
     <section>
       <h2>Color</h2>
       <div id="colors">
@@ -430,46 +503,6 @@
       </div>
     </section>
     <section>
-      <h2>Tool options</h2>
-      <div id="toolName" class="toolName"></div>
-      <div id="transformPanel" hidden>
-        <div class="sub">Transform <span id="transformInfo"></span></div>
-        <div class="row">
-          <button id="tFlipH" title="Flip left to right">Flip H</button><button id="tFlipV" title="Flip top to bottom">Flip V</button>
-          <button id="tRotL" title="Rotate 90° counterclockwise">↺ 90</button><button id="tRotR" title="Rotate 90° clockwise">↻ 90</button>
-        </div>
-        <label class="prop">Angle ° <input type="number" id="tAngle" min="-360" max="360" step="1"></label>
-        <label class="prop">Width % <input type="number" id="tScaleW" min="1" max="1600"></label>
-        <label class="prop">Height % <input type="number" id="tScaleH" min="1" max="1600"></label>
-        <label class="check"><input type="checkbox" id="smoothRotate" checked> Smooth rotation (RotSprite-style)</label>
-        <label class="check"><input type="checkbox" id="keepRatio"> Keep proportions when resizing</label>
-        <div class="row"><button id="tCancel" title="Esc">Cancel</button><button id="tApply" class="on" title="Enter">Place it</button></div>
-        <hr>
-      </div>
-      <div data-for="pencil eraser line curve rect ellipse spray shade">
-        <div class="prop size-prop"><span id="sizeLabel">Brush size</span><input type="range" id="brushSlider" min="1" max="100" value="1" aria-label="Brush size"><input type="number" id="brushSize" min="1" max="100" value="1" aria-label="Brush size in pixels"></div>
-        <div class="size-chips" id="sizeChips" role="group" aria-label="Quick brush sizes"></div>
-        <label class="prop">Brush <select id="brushShape"><option value="square">Square</option><option value="round">Round</option></select></label>
-        <div id="customBrushRow" class="prop" hidden><span id="customBrushInfo"></span><select id="brushColorMode" aria-label="Custom brush colors"><option value="own">Its own colors</option><option value="color">Drawing color</option></select><button id="normalBrush">Normal brush</button></div>
-      </div>
-      <label class="prop" data-for="pencil line curve rect ellipse fill spray">Pattern <select id="pattern"><option value="solid">Solid</option><option value="checker">Checker 50%</option><option value="dots">Dots 25%</option><option value="lines">Lines</option><option value="diagonal">Diagonal</option></select></label>
-      <label class="check" data-for="pencil eraser">  <input type="checkbox" id="pixelPerfect" checked> Pixel-perfect lines</label>
-      <label class="check" data-for="rect ellipse"><input type="checkbox" id="filledShapes"> Filled shapes</label>
-      <label class="prop" data-for="wand">Tolerance <input type="number" id="wandTolerance" min="0" max="255" value="0"></label>
-      <label class="check" data-for="wand"><input type="checkbox" id="wandContiguous" checked> Only touching pixels</label>
-      <label class="check" data-for="gradient"><input type="checkbox" id="gradientDither" checked> Dithered (drawing color to background color)</label>
-      <div class="segmented" data-for="select lasso wand" role="group" aria-label="New selections">
-        <button data-mode="replace">Replace</button><button data-mode="add">Add</button><button data-mode="subtract">Subtract</button>
-      </div>
-      <p class="hint" data-for="select lasso wand">With a keyboard, Shift adds and Alt subtracts. Edit > Transform (Ctrl+T) moves, scales or rotates it.</p>
-      <p class="hint" data-for="gradient">Drag from where the drawing color starts to where the background color ends.</p>
-      <p class="hint" data-for="curve">Drag the line, then move to bend it and click.</p>
-      <p class="hint" data-for="slice">Drag to make a slice. Click a slice to edit or delete it.</p>
-      <label class="check" data-for="slice"><input type="checkbox" id="showSlices" checked> Show slices with other tools too</label>
-      <label class="prop" data-for="pencil eraser line curve rect ellipse spray shade fill gradient">Symmetry <select id="symmetry"><option value="none">Off</option><option value="v">Left–right</option><option value="h">Top–bottom</option><option value="both">Both</option></select></label>
-      <div class="prop" id="symAxes" hidden>Axis <input type="number" id="symX" step="0.5" title="Left–right axis, pixels from the left"><input type="number" id="symY" step="0.5" title="Top–bottom axis, pixels from the top"><button id="symCenter">Center</button></div>
-    </section>
-    <section>
       <h2>View</h2>
       <label class="prop">Fingers <select id="fingerMode"><option value="auto">Draw until a pen is used</option><option value="draw">Always draw</option><option value="navigate">Only move and zoom</option></select></label>
       <p class="hint" id="fingerHint"></p>
@@ -510,20 +543,26 @@
 
 <footer>
   <div class="row">
-    <button id="play" title="Enter">Play</button>
-    <select id="playTag" aria-label="What to play"></select>
-    <button id="toggleLoop" class="on" title="Keep repeating while playing">Loop</button>
+    <span class="row fgroup fplay">
+      <button id="play" title="Enter">Play</button>
+      <select id="playTag" aria-label="What to play"></select>
+      <button id="toggleLoop" class="on" title="Keep repeating while playing">Loop</button>
+    </span>
     <span class="sep"></span>
-    <label class="row" title="How long the selected frames stay on screen">Duration <input type="number" id="duration" min="10" max="10000" step="10"> ms</label>
-    <label class="row" title="Set every frame's duration from a frame rate">All frames at <input type="number" id="fps" min="1" max="60" value="8"> fps</label>
-    <button id="applyFps">Set all</button>
+    <span class="row fgroup ftime">
+      <label class="row" title="How long the selected frames stay on screen">Duration <input type="number" id="duration" min="10" max="10000" step="10"> ms</label>
+      <label class="row" title="Set every frame's duration from a frame rate">All frames at <input type="number" id="fps" min="1" max="60" value="8"> fps</label>
+      <button id="applyFps">Set all</button>
+    </span>
     <span class="sep"></span>
-    <button id="addFrame">Add frame</button>
-    <button id="dupFrame">Duplicate</button>
-    <button id="delFrame">Delete</button>
-    <button id="frameLeft" aria-label="Move frame earlier">←</button>
-    <button id="frameRight" aria-label="Move frame later">→</button>
-    <button id="addTag" title="Name the selected frames, like walk or attack. Shift-click frames to select several.">New tag</button>
+    <span class="row fgroup fframes">
+      <button id="addFrame">Add frame</button>
+      <button id="dupFrame">Duplicate</button>
+      <button id="delFrame">Delete</button>
+      <button id="frameLeft" aria-label="Move frame earlier" title="Move frame earlier">←</button>
+      <button id="frameRight" aria-label="Move frame later" title="Move frame later">→</button>
+      <button id="addTag" title="Name the selected frames, like walk or attack. Shift-click frames to select several.">New tag</button>
+    </span>
     <span id="frameLabel"></span>
   </div>
   <div id="timeline">
@@ -822,7 +861,7 @@ const AUTOSAVE_KEY = "sprite-editor-autosave";
 const HISTORY_LIMIT = 80;
 
 const TOOLS = [
-  ["pencil", "Pencil", "B"], ["eraser", "Eraser", "E"], ["fill", "Fill", "G"], ["picker", "Pick", "I"],
+  ["pencil", "Pencil", "B"], ["eraser", "Eraser", "E"], ["fill", "Fill", "G"], ["picker", "Color Picker", "I"],
   ["line", "Line", "L"], ["curve", "Curve", "Shift+L"], ["rect", "Rect", "U"], ["ellipse", "Ellipse", "O"], ["gradient", "Gradient", "Shift+G"],
   ["spray", "Spray", "S"], ["shade", "Shade", "D"],
   ["select", "Select", "M"], ["lasso", "Lasso", "Q"], ["wand", "Wand", "W"], ["move", "Move", "V"], ["slice", "Slice", "Shift+C"],
@@ -849,6 +888,14 @@ const TOOL_ICONS = {
   slice: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16" stroke-dasharray="2 2"/>',
 };
 const TOOL_GROUP_STARTS = new Set(["line", "spray", "select", "slice", "hand"]);
+// On phones the tools are split into tabs so they fit on one row.
+const TOOL_TABS = [
+  ["brush", "Brush", "Pencil, eraser, fill, color picker, spray and shade", ["pencil", "eraser", "fill", "picker", "spray", "shade"]],
+  ["shapes", "Shapes", "Lines, curves, rectangles, ellipses and gradients", ["line", "curve", "rect", "ellipse", "gradient"]],
+  ["select", "Select", "Select, lasso, magic wand, move, slice and hand", ["select", "lasso", "wand", "move", "slice", "hand"]],
+];
+const tabOfTool = (id) => (TOOL_TABS.find((g) => g[3].includes(id)) || TOOL_TABS[0])[0];
+let toolTab = "brush";
 const BLEND_MODES = ["normal", "multiply", "screen", "overlay", "darken", "lighten", "add", "subtract", "difference"];
 const ICONS = {
   eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -867,7 +914,7 @@ const state = {
   layers: [], groups: [], groupSel: null, frames: [],   // frames: {cels: [per layer], duration}
   layer: 0, frame: 0,
   tool: "pencil", color: [217, 164, 65, 255], bgColor: [20, 20, 26, 255], palette: [], paletteSel: -1, recent: [], brush: 1,
-  brushShape: "square", pattern: "solid", symmetry: "none", pixelPerfect: true, filled: false,
+  brushShape: "square", pattern: "solid", symmetry: "none", pixelPerfect: false, filled: false,
   zoom: 8, panX: 0, panY: 0, grid: true, onion: false, zoomToMouse: true,
   selection: null,          // {mask: one byte per pixel, x, y, w, h: its bounding box}
   tiled: "none",            // repeat the sprite around itself: none, x, y, both (drawing wraps around)
@@ -1439,8 +1486,15 @@ function transformFloating(change) {
   change(floating);
   renderFloating(); refreshTransformPanel(); draw();
 }
+// The Tool options box sits at the top of the right panel and only shows when the tool has options.
+function refreshToolOptions() {
+  const has = !$("transformPanel").hidden || [...$("toolOptions").querySelectorAll("[data-for]")].some((el) => !el.hidden);
+  $("toolOptions").hidden = !has;
+  return has;
+}
 function refreshTransformPanel() {
   $("transformPanel").hidden = !floating;
+  refreshToolOptions();
   if (!floating) return;
   const f = floating;
   if (document.activeElement !== $("tAngle")) $("tAngle").value = Math.round(f.angle * 10) / 10;
@@ -2409,11 +2463,20 @@ function refreshTools() {
     b.title = key ? `${label} (${key})` : label;
     b.setAttribute("aria-label", label); b.setAttribute("aria-pressed", state.tool === id);
     b.onclick = () => setTool(id);
+    if (tabOfTool(id) !== toolTab) b.classList.add("off-tab");
     if (!TOOL_GROUP_STARTS.has(id)) return [b];
     const gap = document.createElement("span"); gap.className = "gap";
     return [gap, b];
   }));
   document.querySelectorAll("[data-for]").forEach((el) => { el.hidden = !el.dataset.for.split(" ").includes(state.tool); });
+  refreshToolOptions();
+  $("toolTabs").replaceChildren(...TOOL_TABS.map(([id, label, title]) => {
+    const b = document.createElement("button");
+    b.textContent = label; b.title = title; b.setAttribute("role", "tab");
+    b.classList.toggle("on", id === toolTab); b.setAttribute("aria-selected", id === toolTab);
+    b.onclick = () => { toolTab = id; refreshTools(); };
+    return b;
+  }));
   const tool = TOOLS.find((t) => t[0] === state.tool), key = keyLabel(`tool:${state.tool}`);
   $("toolName").textContent = tool ? `${tool[1]}${key ? `  ·  ${key}` : ""}` : "";
   document.querySelectorAll(".segmented [data-mode]").forEach((b) => { b.classList.toggle("on", b.dataset.mode === state.selMode); b.setAttribute("aria-pressed", b.dataset.mode === state.selMode); });
@@ -2449,9 +2512,11 @@ function setStatus(extra) {
 function setTool(id) {
   if (curveEdit) commitCurve();
   if (floating && id !== "move") commitFloating();
-  state.tool = id;
+  state.tool = id; toolTab = tabOfTool(id);
   state.brush = brushSizes[sizeSlot()];  // the eraser keeps its own size
   refreshTools(); refreshSizeUI(); draw();
+  const panel = document.querySelector("aside");
+  if (refreshToolOptions() && getComputedStyle(panel).overflowY === "auto") panel.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // New layers go above the current one, in the same folder.
@@ -4603,7 +4668,13 @@ $("layerBlend").onchange = (e) => { if (state.groupSel !== null) return; pushUnd
 $("brushShape").onchange = (e) => { state.brushShape = e.target.value; };
 $("pattern").onchange = (e) => { state.pattern = e.target.value; };
 $("symmetry").onchange = (e) => { state.symmetry = e.target.value; refreshHeader(); draw(); };
-$("pixelPerfect").onchange = (e) => { state.pixelPerfect = e.target.checked; };
+// Off by default: it removes corner pixels, which surprised artists filling corners. The choice is remembered.
+try { state.pixelPerfect = localStorage.getItem("pixelito-pixel-perfect") === "1"; } catch { /* default off */ }
+$("pixelPerfect").checked = state.pixelPerfect;
+$("pixelPerfect").onchange = (e) => {
+  state.pixelPerfect = e.target.checked;
+  try { localStorage.setItem("pixelito-pixel-perfect", state.pixelPerfect ? "1" : "0"); } catch { /* fine */ }
+};
 $("filledShapes").onchange = (e) => { state.filled = e.target.checked; };
 $("play").onclick = play;
 $("playTag").onchange = () => { if (playing) { stopPlay(); play(); } };

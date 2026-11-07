@@ -1,11 +1,12 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "date": "2026-11-06",
-  "title": "Brush sizes",
+  "title": "Tidier panels and full corners",
   "changes": [
-    "Brush size slider from 1 to 100 pixels, plus a box to type an exact size.",
-    "One-tap size buttons from 1\u00d71 to 10\u00d710, easy with a finger or Apple Pencil.",
-    "The eraser has its own size, and Pixelito remembers both."
+    "Tool options now sit at the top of the right panel, above the colors, and only show when the tool has settings.",
+    "Drawing and erasing keep every pixel you touch, so corners fill in completely. Corner trimming is now an option: Smooth lines (trims corner pixels).",
+    "Phones: tools are grouped into Brush, Shapes and Select tabs, the top bar takes two rows instead of three, and the timeline buttons are neatly arranged.",
+    "The Pick tool is now called Color Picker."
   ],
   "download": "https://github.com/FluffyAmigoTV/pixelito/releases/latest",
   "changelog": "https://github.com/FluffyAmigoTV/pixelito/blob/main/CHANGELOG.md"
