@@ -2,6 +2,17 @@
 
 Every update to Pixelito, newest first. Installed copies show these notes after updating.
 
+## 1.3.0 · Straight into Unity
+
+*Released 2026-11-08*
+
+- File > Export to Unity (Ctrl+Shift+U) in the Windows version: choose your Unity project once, then every export goes straight into Assets/Art/Pixelito, and Pixelito adds its Unity importer to the project for you.
+- In Unity, exports become sprites, one animation per tag with your frame timings, and a ready-made Animator for each character.
+- Characters can face 4 or 8 directions: name tags like walk_north, attack_south_west, or short like walk_n. West-facing animations are made by flipping the east ones if you only drew one side.
+- Attacks, spells and hurt animations play once and go back to idle; death stays on its last frame; everything else loops.
+- UI slices keep their 9-slice borders, and tileset exports become Unity tiles plus a Tile Palette laid out like your drawing.
+- Phones and tablets: the import buttons can now pick pictures saved in Files, not just the photo gallery.
+
 ## 1.2.1 · Tidier panels and full corners
 
 *Released 2026-11-06*

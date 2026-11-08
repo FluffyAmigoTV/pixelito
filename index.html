@@ -312,6 +312,19 @@
 <script type="application/json" id="changelog">
 [
   {
+    "version": "1.3.0",
+    "date": "2026-11-08",
+    "title": "Straight into Unity",
+    "changes": [
+      "File > Export to Unity (Ctrl+Shift+U) in the Windows version: choose your Unity project once, then every export goes straight into Assets/Art/Pixelito, and Pixelito adds its Unity importer to the project for you.",
+      "In Unity, exports become sprites, one animation per tag with your frame timings, and a ready-made Animator for each character.",
+      "Characters can face 4 or 8 directions: name tags like walk_north, attack_south_west, or short like walk_n. West-facing animations are made by flipping the east ones if you only drew one side.",
+      "Attacks, spells and hurt animations play once and go back to idle; death stays on its last frame; everything else loops.",
+      "UI slices keep their 9-slice borders, and tileset exports become Unity tiles plus a Tile Palette laid out like your drawing.",
+      "Phones and tablets: the import buttons can now pick pictures saved in Files, not just the photo gallery."
+    ]
+  },
+  {
     "version": "1.2.1",
     "date": "2026-11-06",
     "title": "Tidier panels and full corners",
@@ -850,8 +863,9 @@
   <label>Scale <input type="number" id="exportScale" min="1" max="16" value="1"></label>
   <label>Also export each palette variant <input type="checkbox" id="exportVariants"></label>
   <label>Every open tab, each under its tab name <input type="checkbox" id="exportAllTabs"></label>
+  <p id="unityRow" hidden>Unity project: <b id="unityName">none chosen yet</b> <button id="unityPick" type="button">Choose…</button><br><small>Export to Unity puts the sprite sheet in the project's <code>Assets/Art/Pixelito</code> folder; Unity makes the sprites, animations and Animator when you switch to it.</small></p>
   <p id="exportInfo"></p>
-  <div class="actions"><button id="exportShare" hidden title="Send it to Files, Photos, AirDrop or another app">Share…</button><span class="spacer"></span><button data-close>Close</button><button id="exportOk" class="on">Export</button></div>
+  <div class="actions"><button id="exportShare" hidden title="Send it to Files, Photos, AirDrop or another app">Share…</button><span class="spacer"></span><button data-close>Close</button><button id="exportUnity" hidden title="Ctrl+Shift+U">Export to Unity</button><button id="exportOk" class="on">Export</button></div>
 </dialog>
 
 <script>
@@ -3752,6 +3766,7 @@ const COMMANDS = [
   cmd("importFrames", "File", "Import frames (PNG files or animated GIF)…", "", () => $("framesFile").click()),
   cmd("reference", "File", "Load reference image…", "", () => $("refFile").click()),
   cmd("export", "File", "Export…", "Ctrl+Shift+E", () => $("exportBtn").click(), true),
+  cmd("exportUnity", "File", "Export to Unity (Windows version)", "Ctrl+Shift+U", () => exportToUnity()),
   cmd("saveFolders", "File", "Save folders…", "", () => openFolders()),
   cmd("openExports", "File", "Open the exports folder", "", () => { if (window.spriteDesktop) window.spriteDesktop.openFolder("exports"); else setStatus(store.mode === "server" ? "Exports are in the exports folder next to the app" : "On this device, exports go to your Downloads"); }),
   cmd("exportPalette", "File", "Export palette…", "", () => { $("paletteExportInfo").textContent = `${state.palette.length} colors`; $("paletteExportDialog").showModal(); }),
@@ -4758,7 +4773,7 @@ function updateExportInfo() {
 }
 ["tsW", "tsH", "tsSkip", "tsMerge", "tsPadding", "tsExtrude", "tsPPU"].forEach((id) => { $(id).onchange = () => { $("tilesetOptions").dataset.touched = "1"; updateExportInfo(); }; });
 ["exportType", "exportFrames", "exportLayout", "exportCols", "exportTrim", "exportMerge", "exportPadding", "exportExtrude", "exportPivot", "pivotX", "pivotY", "exportPPU", "exportScale"].forEach((id) => { $(id).onchange = updateExportInfo; });
-$("exportBtn").onclick = () => { stopPlay(); commitFloating(); if (!$("exportName").value) $("exportName").value = docs[activeDoc].name; updateExportInfo(); $("exportDialog").showModal(); };
+$("exportBtn").onclick = () => { stopPlay(); commitFloating(); if (!$("exportName").value) $("exportName").value = docs[activeDoc].name; updateExportInfo(); refreshUnityRow(); $("exportDialog").showModal(); };
 // Tileset: the current frame cut into tiles on a grid; repeated tiles stored once. The JSON uses the same
 // "frames" layout as a sprite sheet, plus meta.tileset.map, which says which tile goes in each grid cell (-1 for empty).
 function buildTileset(variant, name = "tiles") {
@@ -4828,7 +4843,48 @@ async function exportFilesFor(name, variant) {
   return [{ name: `${name}.png`, blob: await png(scaledCanvas(celCanvas(pixelsOf(state.frame)), scale)) }];
 }
 // Every chosen sprite (this tab or all tabs), each with its palette variants if asked, saved together.
-async function exportChosen(name) {
+// ---------- Export to Unity (Windows program) ----------
+let unityProjectInfo = null;
+const desktopError = (error) => String(error && error.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+async function refreshUnityRow() {
+  const on = store.mode === "desktop" && !!(window.spriteDesktop && window.spriteDesktop.exportToUnity);
+  $("unityRow").hidden = $("exportUnity").hidden = !on;
+  if (!on) return;
+  try { unityProjectInfo = await window.spriteDesktop.unityInfo(); } catch { unityProjectInfo = null; }
+  const p = unityProjectInfo && unityProjectInfo.project ? unityProjectInfo : null;
+  $("unityName").textContent = p ? `${p.name}${p.version ? ` (Unity ${p.version})` : ""}` : "none chosen yet";
+  $("unityName").title = p ? p.project : "";
+  $("unityPick").textContent = p ? "Change…" : "Choose…";
+}
+async function pickUnityProject() {
+  try {
+    const info = await window.spriteDesktop.pickUnityProject();
+    if (info) unityProjectInfo = info;
+    await refreshUnityRow();
+    return !!(unityProjectInfo && unityProjectInfo.project);
+  } catch (error) { const m = desktopError(error); $("exportInfo").textContent = m; setStatus(m); return false; }
+}
+async function exportToUnity() {
+  const say = (m) => { if ($("exportDialog").open) $("exportInfo").textContent = m; setStatus(m); };
+  if (store.mode !== "desktop" || !(window.spriteDesktop && window.spriteDesktop.exportToUnity)) {
+    say("Export to Unity is in the Windows version of Pixelito. Here, use Export and copy the PNG and JSON into the Unity project.");
+    return;
+  }
+  stopPlay(); commitFloating();
+  if ($("exportType").value !== "sheet" && $("exportType").value !== "tileset") { $("exportType").value = "sheet"; updateExportInfo(); }
+  await refreshUnityRow();
+  if (!(unityProjectInfo && unityProjectInfo.project) && !(await pickUnityProject())) return;
+  const name = ($("exportDialog").open && safeExportName($("exportName").value)) || safeExportName(docs[activeDoc].name) || "sprite";
+  try {
+    say(await exportChosen(name, async (files) => {
+      let scripts = 0;
+      for (const f of files) scripts += (await window.spriteDesktop.exportToUnity(f.name, new Uint8Array(await f.blob.arrayBuffer()))).scripts;
+      const sheets = files.filter((f) => f.name.endsWith(".png")).map((f) => f.name.slice(0, -4));
+      return `Sent ${sheets.join(", ")} to ${unityProjectInfo.name} (${unityProjectInfo.folder}).${scripts ? " Added the Pixelito importer to the project too." : ""} Switch to Unity to see it.`;
+    }));
+  } catch (error) { say(`Export to Unity failed: ${desktopError(error)}`); }
+}
+async function exportChosen(name, send = store.exportFiles) {
   const allTabs = $("exportAllTabs").checked, withVariants = $("exportVariants").checked, start = activeDoc, files = [];
   const tabs = allTabs ? docs.map((_, i) => i) : [activeDoc];
   try {
@@ -4840,8 +4896,10 @@ async function exportChosen(name) {
       if (withVariants) for (const v of state.variants) files.push(...await exportFilesFor(safeExportName(`${base}_${v.name}`) || `${base}_variant`, v));
     }
   } finally { if (allTabs) switchDoc(start); }
-  return store.exportFiles(files);
+  return send(files);
 }
+$("exportUnity").onclick = exportToUnity;
+$("unityPick").onclick = pickUnityProject;
 $("exportOk").onclick = async () => {
   const name = safeExportName($("exportName").value);
   if (!name && !$("exportAllTabs").checked) { $("exportInfo").textContent = "Use a name with letters or numbers."; return; }
